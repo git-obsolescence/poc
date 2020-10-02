@@ -1,0 +1,5 @@
+#!/bin/bash -x
+
+[ $# -eq 0 ] && set -- $SHELL
+
+exec ${1+"$@"}
