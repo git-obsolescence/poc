@@ -1,0 +1,54 @@
+#!/bin/bash
+
+usage() {
+    cat >&2 <<-USAGE
+	Usage:
+
+	    $0 [<command> --help
+	    $0 [<command> [<arg> ...]]
+
+	If this script is run from within a git working directory, it will
+	setup the repository for git obsolescence by installing necessary
+	hooks and configuring \$PATH to use scripts from this project.
+
+	If a command (with optional arguments) is given as the first argument,
+	it will be run in the context of the repository setup with this POC
+	code. If no arguments are given, and a terminal is attached,  an
+	interactive shell will be started within the same context and will
+	persist until you exit the shell (e.g. with ^D).
+	USAGE
+}
+
+case $1 in
+-h|--help) usage ; exit ;;
+esac
+
+# Check to see if this script was run from a git repository. If not, create one
+# and cd to it.
+if ! git rev-parse --show-toplevel >/dev/null 2>&1
+then
+    echo >&2 "Run this from within a git working directory"
+    usage
+    exit 1
+fi
+
+# Adjust $PATH with the local scripts directory at the front
+mydir=$(cd $(dirname "$0") && pwd)
+export PATH=${mydir}/bin:$PATH
+
+# If no arguments were given, start an interactive shell
+if [ $# -eq 0 ]
+then
+    # To start an interactive shell, we should be attached to a terminal.
+    if [ ! -t 0 ]
+    then
+        usage
+        exit 1
+    fi
+
+    # TODO A visual prompt indicator of some kind would be nice to remind us
+    # we're in a special subshell.
+    set -- $SHELL
+fi
+
+exec ${1+"$@"}
