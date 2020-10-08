@@ -36,6 +36,25 @@ fi
 mydir=$(cd $(dirname "$0") && pwd)
 export PATH=${mydir}/bin:$PATH
 
+hookdir=$(git rev-parse --git-dir)/hooks
+if [ -L "${hookdir}/post-rewrite" ]
+then
+    echo >&2 "Refusing to run the git obsolescence wrapper within itself"
+    exit 1
+fi
+
+if [ -f "${hookdir}/post-rewrite" ]
+then
+    echo >&2 "Repository already has a post-rewrite hook"
+    exit 1
+fi
+ln -sf ${mydir}/hooks/post-rewrite ${hookdir}/post-rewrite
+
+cleanup() {
+    rm -f ${hookdir}/post-rewrite
+}
+trap cleanup EXIT
+
 # If no arguments were given, start an interactive shell
 if [ $# -eq 0 ]
 then
@@ -51,4 +70,4 @@ then
     set -- $SHELL
 fi
 
-exec ${1+"$@"}
+${1+"$@"}
