@@ -1,0 +1,102 @@
+#!/bin/bash -ex
+
+. "$(dirname "$0")/common.sh"
+
+########################################################################
+# Test amending the top commit
+#
+# Amends the HEAD commit and tests that the obsolescence graph is added.
+#
+########################################################################
+
+quick_commit_files "First commit" one
+quick_commit_files "Second commit" two
+
+oldhead=$(git rev-parse HEAD)
+
+echo stuff > two
+git add two
+
+git commit --amend --no-edit
+
+assert_revs_equal "predecessor reference" ${oldhead} $(list_predecessors HEAD)
+
+########################################################################
+# Test a fixup to an earlier commit
+#
+# Applies a fixup to an early commit and tests that the new commit points to
+# both predecessors
+#
+########################################################################
+
+echo text > one
+git commit -a --fixup $(git rev-parse HEAD)~
+
+old_head=$(git rev-parse HEAD)
+
+no_edit git rebase --root --autosquash --interactive
+
+assert_revs_equal "2nd commit predecessor"   ${old_head}~  $(list_predecessors HEAD)
+assert_revs_equal "1st commit predecessor 1" ${old_head}~2 $(list_predecessors HEAD~ | sed -n 1p)
+assert_revs_equal "1st commit predecessor 2" ${old_head}   $(list_predecessors HEAD~ | sed -n 2p)
+
+########################################################################
+# Test squashing commits
+#
+# Creates three commits and then squashes them together
+#
+########################################################################
+
+echo "squash"  > one
+git commit -a -m "squashme one"
+echo "squash" > two
+git commit -a -m "squashme two"
+
+quick_commit_files "squash three" three
+
+old_head=$(git rev-parse HEAD)
+
+ed_it git rebase --autosquash --interactive ${old_head}~3 <<ED
+2,3s/^pick/fixup/
+w
+ED
+
+# The first predecessor should be the earliest commit (by DAG, not necessarily
+# by date). This way, the new folded change takes on its change id. This is
+# consistent with the following from git-rebase(1) about fixups.
+#
+#     If the commits had different authors, the folded commit will be
+#     attributed to the author of the first commit. The suggested commit
+#     message ... omits the commit messages of commits with the "fixup"
+#     command.
+assert_revs_equal "predecessor 1" ${old_head}~2 $(list_predecessors HEAD | sed -n 1p)
+assert_revs_equal "predecessor 2" ${old_head}~1 $(list_predecessors HEAD | sed -n 2p)
+assert_revs_equal "predecessor 3" ${old_head}   $(list_predecessors HEAD | sed -n 3p)
+
+########################################################################
+# Test splitting a commit
+#
+# This uses the SPLITTING COMMITS procedure in git-rebase(1) to split an
+# original commit into two. Both new commits should point to the original
+# as its predecessor.
+#
+########################################################################
+
+echo splitme >one
+echo splitme >two
+quick_commit_files "split me" one two
+
+old_head=$(git rev-parse HEAD)
+
+ed_it git rebase --interactive ${old_head}~ <<ED
+1,s/^pick/edit/
+w
+ED
+
+git reset HEAD~
+quick_commit_files "split me one" one
+quick_commit_files "split me two" two
+git rebase --continue
+
+assert_revs_equal "commit 1 predecessor" ${old_head} $(list_predecessors HEAD~)
+assert_revs_equal "commit 2 predecessor" ${old_head} $(list_predecessors HEAD)

@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# All of this would be easier if the git command itself could add the obsoletes
+# trailers when it rewrites the commits.
+
+echo Running the post-rewrite hook
+
+# From githooks(5): first argument denotes the command it was invoked by:
+# currently one of amend or rebase. Ignore it for now.
+invoked_by=$1; shift
+
+# The hook receives a list of the rewritten commits on stdin, in the format
+#
+#     <old-sha1> SP <new-sha1> [ SP <extra-info> ] LF
+#
+# Write it to a temporary file we can read repeatedly
+rewrites_file=$(mktemp -t post-rewrite.XXXXXX)
+trap "rm -f ${rewrites_file}" EXIT
+cat > ${rewrites_file}
+
+# When you `git-rebase --interactive` and then use the procedure for SPLITTING
+# COMMITS described in the help, it leaves holes in the list of rewrites for
+# the new commits except for the last one, which is paired with the
+# original commit. For the purposes of git obsolescence, this fills in the
+# holes. When splitting out a commit, each new commit should point to the
+# original commit as its predecessor.
+
+# The following works back through the log of new commits starting from the new
+# HEAD. This is the reverse order as the rewrites are fed into stdin. So, we
+# need to be careful to work through the file in reverse. Hence the use of tac.
+oldhead=$(awk 'END{print$1}' ${rewrites_file})
+newhead=$(awk 'END{print$2}' ${rewrites_file})
+for new_sha in $(git log --topo-order --pretty=%H ${oldhead}..${newhead})
+do
+    old_shas=$(awk -v sha=${new_sha} '$2 == sha {print$1}' ${rewrites_file} | tac)
+    if [ -z "$old_shas" ]
+    then
+        # This fills in the hole with the last known original commit
+        echo $last $new_sha
+        continue
+    fi
+    for old_sha in ${old_shas}
+    do
+        echo $old_sha $new_sha
+    done
+    last=$old_sha
+done | tac > ${rewrites_file}.new
+
+# Use the new file with the holes filled in.
+mv ${rewrites_file}.new ${rewrites_file}
+
+# Iterate over the new shas (2nd field). The commits are guaranteed to be
+# listed in the order that they were processed by rebase.
+new_shas=$(cut -d ' ' -f 2 ${rewrites_file} | uniq)
+
+# Note, this commit hook doesn't work for preserved merge commits. It assumes
+# each rewritten commit has a single parent. Handling merge commits would
+# require an algorithm sensitive to the DAG nature of commit graphs.
+base="$(awk '{print$2;exit}' ${rewrites_file})^"
+parents=()
+if git rev-parse --quiet --verify ${base} >/dev/null
+then
+    parents=(-p $(git rev-parse ${base}))
+fi
+
+for new_sha in ${new_shas}
+do
+    old_shas=$(awk -v sha=${new_sha} '$2 == sha {print$1}' ${rewrites_file})
+    trailers=()
+    for old_sha in ${old_shas}
+    do
+        trailers+=(--trailer obsoletes:${old_sha})
+    done
+
+    export GIT_AUTHOR_NAME=$(git log -1 --pretty=%an ${new_sha})
+    export GIT_AUTHOR_EMAIL=$(git log -1 --pretty=%ae ${new_sha})
+    export GIT_AUTHOR_DATE=$(git log -1 --pretty=%aD ${new_sha})
+    export GIT_COMMITTER_NAME=$(git log -1 --pretty=%cn ${new_sha})
+    export GIT_COMMITTER_EMAIL=$(git log -1 --pretty=%ce ${new_sha})
+
+    tree=$(git log -1 --pretty=%T ${new_sha})
+
+    parent=$(git log -1 --pretty=%B ${new_sha} |
+        grep -v "^obsoletes: " |
+        git interpret-trailers "${trailers[@]}" |
+        git commit-tree ${tree} "${parents[@]}")
+    parents=(-p $parent)
+
+    echo "${parent} obsoletes the following commits"
+    for old_sha in ${old_shas}
+    do
+        echo "    -> ${old_sha}"
+    done
+done
+
+echo Finished running the post-rewrite hook
+
+# Finally, reset the current branch to the new chain of commits
+git reset ${parent}
