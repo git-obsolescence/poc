@@ -55,7 +55,9 @@ troubleshoot() {
     if [ -t 0 ]
     then
         echo >&2 "You're now in a troubleshooting shell, exit the shell to get back"
-        $SHELL
+        # Tried calling $SHELL here but zsh has trouble if it is invoked more
+        # than once from a script like this.
+        bash --norc
     fi
 }
 
