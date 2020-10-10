@@ -19,6 +19,7 @@ git add two
 
 git commit --amend --no-edit
 
+git_clean
 assert_revs_equal "predecessor reference" ${oldhead} $(list_predecessors HEAD)
 
 ########################################################################
@@ -36,6 +37,7 @@ old_head=$(git rev-parse HEAD)
 
 no_edit git rebase --root --autosquash --interactive
 
+git_clean
 assert_revs_equal "2nd commit predecessor"   ${old_head}~  $(list_predecessors HEAD)
 assert_revs_equal "1st commit predecessor 1" ${old_head}~2 $(list_predecessors HEAD~ | sed -n 1p)
 assert_revs_equal "1st commit predecessor 2" ${old_head}   $(list_predecessors HEAD~ | sed -n 2p)
@@ -69,6 +71,7 @@ ED
 #     attributed to the author of the first commit. The suggested commit
 #     message ... omits the commit messages of commits with the "fixup"
 #     command.
+git_clean
 assert_revs_equal "predecessor 1" ${old_head}~2 $(list_predecessors HEAD | sed -n 1p)
 assert_revs_equal "predecessor 2" ${old_head}~1 $(list_predecessors HEAD | sed -n 2p)
 assert_revs_equal "predecessor 3" ${old_head}   $(list_predecessors HEAD | sed -n 3p)
@@ -98,5 +101,36 @@ quick_commit_files "split me one" one
 quick_commit_files "split me two" two
 git rebase --continue
 
+git_clean
 assert_revs_equal "commit 1 predecessor" ${old_head} $(list_predecessors HEAD~)
 assert_revs_equal "commit 2 predecessor" ${old_head} $(list_predecessors HEAD)
+
+########################################################################
+# Test reordering commits
+#
+# All the same commits, just reorder them.
+#
+########################################################################
+
+quick_commit_files "reorder me" three
+
+old_head=$(git rev-parse HEAD)
+
+# Move the earliest commit to be the last commit with ed move command
+ed_it git rebase --interactive HEAD~3 <<ED
+1m3
+w
+ED
+
+git_clean
+assert_revs_equal "HEAD"   ${old_head}~2 $(list_predecessors HEAD)
+assert_revs_equal "HEAD~"  ${old_head}   $(list_predecessors HEAD~)
+assert_revs_equal "HEAD~2" ${old_head}~1 $(list_predecessors HEAD~2)
+
+# More complex cases, which are combinations of the above operations in the
+# same rebase run involving some of the same commits, should be considered at
+# some point. For the purposes of this POC, they are unsupported. Examples
+# include:
+#
+#   - reorder + squash
+#   - split + squash

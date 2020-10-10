@@ -55,7 +55,9 @@ troubleshoot() {
     if [ -t 0 ]
     then
         echo >&2 "You're now in a troubleshooting shell, exit the shell to get back"
-        $SHELL
+        # Tried calling $SHELL here but zsh has trouble if it is invoked more
+        # than once from a script like this.
+        bash --norc
     fi
 }
 
@@ -97,4 +99,12 @@ ed_it() {
 # non-interactively to accept the default commit list without editing.
 no_edit() {
     EDITOR=touch ${1+"$@"}
+}
+
+# This accelerates the pruning of unreachable objects in tests so that we can 
+# be sure that old commits are available merely by accident. We want to be sure
+# they continue to be available in the repository even when they are obsolete.
+git_clean() {
+    git reflog expire --expire=all --all
+    git gc --prune=now --aggressive
 }
