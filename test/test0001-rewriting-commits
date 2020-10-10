@@ -100,3 +100,24 @@ git rebase --continue
 
 assert_revs_equal "commit 1 predecessor" ${old_head} $(list_predecessors HEAD~)
 assert_revs_equal "commit 2 predecessor" ${old_head} $(list_predecessors HEAD)
+
+########################################################################
+# Test reordering commits
+#
+# All the same commits, just reorder them.
+#
+########################################################################
+
+quick_commit_files "reorder me" three
+
+old_head=$(git rev-parse HEAD)
+
+# Move the earliest commit to be the last commit with ed move command
+ed_it git rebase --interactive HEAD~3 <<ED
+1m3
+w
+ED
+
+assert_revs_equal "HEAD"   ${old_head}~2 $(list_predecessors HEAD)
+assert_revs_equal "HEAD~"  ${old_head}   $(list_predecessors HEAD~)
+assert_revs_equal "HEAD~2" ${old_head}~1 $(list_predecessors HEAD~2)
