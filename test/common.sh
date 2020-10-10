@@ -100,3 +100,11 @@ ed_it() {
 no_edit() {
     EDITOR=touch ${1+"$@"}
 }
+
+# This accelerates the pruning of unreachable objects in tests so that we can 
+# be sure that old commits are available merely by accident. We want to be sure
+# they continue to be available in the repository even when they are obsolete.
+git_clean() {
+    git reflog expire --expire=all --all
+    git gc --prune=now --aggressive
+}
