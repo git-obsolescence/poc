@@ -9,8 +9,10 @@
 #
 ########################################################################
 
-quick_commit_files "First commit" one
-quick_commit_files "Second commit" two
+touch one && git add one
+git commit -m "First commit" one
+touch two && git add two
+git commit -m "Second commit" two
 
 oldhead=$(git rev-parse HEAD)
 
@@ -54,7 +56,8 @@ git commit -a -m "squashme one"
 echo "squash" > two
 git commit -a -m "squashme two"
 
-quick_commit_files "squash three" three
+touch three && git add three
+git commit -m "squash three" three
 
 old_head=$(git rev-parse HEAD)
 
@@ -87,7 +90,7 @@ assert_revs_equal "predecessor 3" ${old_head}   $(list_predecessors HEAD | sed -
 
 echo splitme >one
 echo splitme >two
-quick_commit_files "split me" one two
+git commit -m "split me" one two
 
 old_head=$(git rev-parse HEAD)
 
@@ -97,8 +100,8 @@ w
 ED
 
 git reset HEAD~
-quick_commit_files "split me one" one
-quick_commit_files "split me two" two
+git commit -m "split me one" one
+git commit -m "split me two" two
 git rebase --continue
 
 git_clean
@@ -112,7 +115,8 @@ assert_revs_equal "commit 2 predecessor" ${old_head} $(list_predecessors HEAD)
 #
 ########################################################################
 
-quick_commit_files "reorder me" three
+echo "reorder" > three
+git commit -m "reorder me" three
 
 old_head=$(git rev-parse HEAD)
 

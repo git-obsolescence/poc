@@ -33,17 +33,6 @@ export GIT_AUTHOR_EMAIL="author@example.com"
 export GIT_COMMITTER_NAME="Test Committer"
 export GIT_COMMITTER_EMAIL="committer@example.com"
 
-quick_commit_files() {
-    local msg=$1
-
-    for filename in ${1+"$@"}
-    do
-        touch $filename
-        git add $filename
-    done
-    git commit -m "$msg"
-}
-
 list_predecessors() {
     local commit=$1
     git log -1 --pretty=%B $commit |
