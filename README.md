@@ -13,6 +13,12 @@ This essentially gives us rebase-like control over exactly how the final
 branch will look while at the same time making it as safe as branching and
 merging without rewriting history: the best of both worlds.
 
+The code in this repository is POC quality. Corners were cut here and there to
+save time. For example, the tests are not broken out into small individual test
+cases that are self-contained. Each script runs through a number of test steps
+that build off of each other. This isn't the ideal way to write tests but was
+condusive to getting the POC done in a shorter amount of time.
+
 ## How to use it
 
 The `shell` command in the top of this repository is the entry point for using
