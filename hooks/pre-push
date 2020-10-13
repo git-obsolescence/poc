@@ -1,0 +1,42 @@
+#!/bin/bash -x
+
+# If this hook is not being called to figure out what changes to push, just
+# exit with 0 to allow the push to proceed.
+[ -z "$PRE_PUSH_CHANGES_REFS" ] && exit 0
+
+. "$(dirname $(readlink -f "$0"))/common.sh"
+
+exec > $PRE_PUSH_CHANGES_REFS
+
+remote="$1"
+url="$2"
+
+echo ${remote}
+
+z40=0000000000000000000000000000000000000000
+
+while read local_ref local_sha remote_ref remote_sha
+do
+    if [ "$local_sha" = $z40 ]
+    then
+        # Delete a remote ref. Nothing to do in this case
+        continue
+    fi
+
+    if [ "$remote_sha" = $z40 ]
+    then
+        # New branch, examine all commits
+        range="$local_sha"
+    else
+        # Update to existing branch, examine new commits
+        range="$remote_sha..$local_sha"
+    fi
+
+    for commit in $(git log --pretty=%H ${range})
+    do
+        change_id=$(get_change_id ${commit})
+        git show-ref | awk -v sha=${change_id} '$2~"^refs/cheads/"sha {print$2}'
+    done
+done
+
+exit 1

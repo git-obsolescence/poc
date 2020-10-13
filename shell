@@ -43,15 +43,26 @@ then
     exit 1
 fi
 
-if [ -f "${hookdir}/post-rewrite" ]
-then
-    echo >&2 "Repository already has a post-rewrite hook"
-    exit 1
-fi
-ln -sf ${mydir}/hooks/post-rewrite ${hookdir}/post-rewrite
+hooks="post-rewrite pre-push"
+# Install local hooks
+for hook in ${hooks}
+do
+    if [ -f "${hookdir}/${hook}" ]
+    then
+        echo >&2 "Repository already has a ${hook} hook"
+        exit 1
+    fi
+done
+for hook in ${hooks}
+do
+    ln -sf ${mydir}/hooks/${hook} ${hookdir}/${hook}
+done
 
 cleanup() {
-    rm -f ${hookdir}/post-rewrite
+    for hook in ${hooks}
+    do
+        rm -f ${hookdir}/${hook}
+    done
 }
 trap cleanup EXIT
 

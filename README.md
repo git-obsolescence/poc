@@ -19,6 +19,11 @@ cases that are self-contained. Each script runs through a number of test steps
 that build off of each other. This isn't the ideal way to write tests but was
 condusive to getting the POC done in a shorter amount of time.
 
+- git push runs three separate times and therefore is very slow
+- git fetch is similarly slow due to having to hit the remote server multiple
+  times.
+- git pull is not supported. Use git fetch.
+
 ## How to use it
 
 The `shell` command in the top of this repository is the entry point for using

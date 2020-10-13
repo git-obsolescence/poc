@@ -1,0 +1,23 @@
+#!/bin/bash
+
+mydir=$(dirname "$0")
+
+# TODO(Carl) Could this be more robust? It is a POC afterall.
+# Remove the directory this script was found in from the path so that recursive
+# invocations of git call "real" git.
+export PATH=$(echo "$PATH" | sed s,${mydir}:,,g)
+
+exe_name=$(basename $0)
+
+subcommand=""
+case $exe_name in
+  git) subcommand=$1 ; shift ;;
+  git-*) subcommand=${exe_name/git-/}
+esac
+
+if [ -n "${subcommand}" -a -x "${mydir}/git-${subcommand}" ]
+then
+    exec ${mydir}/git-${subcommand} ${1+"$@"}
+fi
+
+exec git ${subcommand} ${1+"$@"}
