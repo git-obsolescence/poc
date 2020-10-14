@@ -13,10 +13,17 @@ then
     export TEST_TMP_DIR=$(mktemp -d -t obsolescence.XXXXXX)
     export TMPDIR=${TEST_TMP_DIR}
 
+    mkdir -p $TEST_TMP_DIR/remote
+    pushd $TEST_TMP_DIR/remote
+    git init --bare
+    rm -rf $(git rev-parse --git-dir )/hooks/*.sample
+    popd
+
     mkdir -p $TEST_TMP_DIR/workspace
     pushd $TEST_TMP_DIR/workspace
     git init
     rm -rf $(git rev-parse --git-dir )/hooks/*.sample
+    git remote add origin $TEST_TMP_DIR/remote
 
     script=$projectdir/test/$(basename "$0")
     # Re-exec the test script given the new repository setup
@@ -32,6 +39,8 @@ export GIT_AUTHOR_NAME="Test Author"
 export GIT_AUTHOR_EMAIL="author@example.com"
 export GIT_COMMITTER_NAME="Test Committer"
 export GIT_COMMITTER_EMAIL="committer@example.com"
+
+. ${projectdir}/hooks/common.sh
 
 list_predecessors() {
     local commit=$1

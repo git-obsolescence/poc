@@ -1,0 +1,59 @@
+#!/bin/bash -ex
+
+. "$(dirname "$0")/common.sh"
+
+branch=$(git branch --show-current)
+
+########################################################################
+# Test initial push
+#
+# Pushes something to a remote
+#
+########################################################################
+
+touch one && git add one
+git commit -m "First commit" one
+git push origin ${branch}
+
+git_clean
+assert_revs_equal "local same as remote" ${branch} origin/${branch}
+
+########################################################################
+# Test update after amend
+#
+########################################################################
+
+echo "amend" > one
+git add one
+git commit --amend --no-edit
+
+# Note that --force is not specified in this command but the push is allowed
+git push origin ${branch}
+
+git_clean
+assert_revs_equal "local same as remote" ${branch} origin/${branch}
+
+########################################################################
+# Test push orphaned changes
+#
+# Creates an orphaned commit as part of the change and tests that it gets
+# pushed to the remote
+#
+########################################################################
+
+echo "orphaned" > one
+git add one
+git commit --amend --no-edit
+
+orphaned=$(git rev-parse HEAD)
+
+echo "amended again" > one
+git add one
+git commit --amend --no-edit
+
+git push origin ${branch}
+
+git_clean
+assert_revs_equal "local same as remote" ${branch} origin/${branch}
+orphaned_on_remote=$(cd ../remote && git log -1 --pretty=%H $orphaned)
+assert_revs_equal "orphaned commit is found on remote" ${orphaned} ${orphaned_on_remote}

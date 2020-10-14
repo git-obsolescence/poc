@@ -1,0 +1,51 @@
+#!/bin/bash -x
+
+# This wrapper attempts to figure out what changes are being pushed to the
+# remote. My first thought was to do this by inspected the arguments that were
+# passed on the command line along with the local git repository as context.
+# However, thinking about parsing and interpreting all of the various ways it
+# can be called seemed like a daunting task.
+
+# The pre-push hook seemed to be a little bit easier way. The hook knows which
+# remote is being updated and the entire list of refs to be updated. So, it has
+# the opportunity to inspect all of the changes getting pushed and fill in the
+# gaps with references to orphaned parts of the change. The problem is that it
+# cannot simply add those refs. It can only exit with 0 or non-0 status.
+
+# The solution I came up with was to do an initial run of git push, have it run
+# through the hook and find all of the changes, and write everything to a temp
+# file that the wrapper can read. Then, the wrapper will make another call to
+# git push to get the job done for real. It is slow but it should work without
+# being too intrusive.
+
+# The next problem was that it was non-trivial to modify the arguments to git
+# push in a way that would preserve the original intent *and* fill in the holes
+# with cheads refs. The solution that I came up with for this was to add yet
+# another call to git push to push the refs that git would normally consider
+# orphoned first and then, finally, make the original git push to get the
+# original intent. Not great, but it should be functional.
+
+# TODO(Carl) Check to see if force is requested.
+force=--force
+for arg in ${1+"$@"}
+do
+    case $arg in
+    -f|--force) force= ;;
+    esac
+done
+
+hook_output=$(mktemp -t push-refs.XXXXXX)
+trap "rm -f ${hook_output}" EXIT
+
+# First run
+PRE_PUSH_CHANGES_REFS=${hook_output} git push ${force} ${1+"$@"}
+
+# Second run
+args=($(<${hook_output}))
+if [ ${#args[@]} -gt 1 ]
+then
+    git push "${args[@]}"
+fi
+
+# Third and final run to get the original intent of the push
+git push ${force} ${1+"$@"}
