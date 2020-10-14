@@ -1,0 +1,50 @@
+#!/bin/bash -ex
+
+. "$(dirname "$0")/common.sh"
+
+branch=$(git branch --show-current)
+
+########################################################################
+# Setup
+#
+########################################################################
+
+touch one && git add one
+git commit -m "First commit"
+git push origin ${branch}
+
+pushd ..
+git clone remote copy
+popd
+
+########################################################################
+# Create a change, amend it in a different workspace and then amend it
+# again in the original workspace without pulling the other changes.
+#
+########################################################################
+echo "fix me" > two
+git add two
+git commit -m "proposed code"
+
+git push origin ${branch}
+
+pushd ../copy
+$POC_SHELL git fetch origin
+git merge origin/${branch}
+
+echo "fixed" > two
+git add two
+$POC_SHELL git commit --amend --no-edit
+$POC_SHELL git push origin
+popd
+
+# Amend the original commit without first pulling the fix from the other
+# workspace.
+echo "new stuff" > three
+git add three
+git commit --amend --no-edit
+
+# Using non-obsolescence aware git, this push would succeed and clobber the fix
+# made in the other workspace. With obsolescence, it fails.
+git fetch origin ${branch}
+not git push origin ${branch}

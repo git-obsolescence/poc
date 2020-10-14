@@ -1,0 +1,92 @@
+#!/usr/bin/env bash -x
+# NOTE: This needs a newer bash than MacOS ships with. Hence, not using /bin/bash
+
+. "$(dirname $(readlink -f "$0"))/common.sh"
+
+remote="$1"
+url="$2"
+
+z40=0000000000000000000000000000000000000000
+
+# reachable_recursive is a helper that shouldn't be called directly
+reachable_recursive() {
+    local me=$1
+    visited[$me]=1
+
+    [ "$me" = "$quarry" ] && return 0
+
+    for adjacent in $(list_obsoletes $me)
+    do
+        [ "$visited[$adjacent]" != 1 ] && reachable_recursive "$adjacent" && return 0
+    done
+    return 1
+}
+
+# reachable returns 0 if the second argument is reachable over the obsolescence
+# graph from the first. Otherwise, it returns non-zero. If the two are equal,
+# it considers them reachable (returns 0).
+reachable() {
+    local quarry=$2
+    local -A visited
+    reachable_recursive $1
+}
+
+while read local_ref local_sha remote_ref remote_sha
+do
+    if [ "$local_sha" = $z40 ]
+    then
+        # Delete a remote ref. Nothing to do in this case
+        continue
+    fi
+
+    if [ "$remote_sha" = $z40 ]
+    then
+        # New branch, examine all commits
+        continue
+    fi
+
+    # Update to existing branch, examine new commits
+    new_range="$remote_sha..$local_sha"
+    old_range="$local_sha..$remote_sha"
+
+    new_commits=$(git log --pretty=%H ${new_range})
+    if [ $? -ne 0 ]
+    then
+        echo >&2 "Cannot find the list of new commits: ${new_range}"
+        echo >&2 "    You may need to run git fetch first"
+        exit 1
+    fi
+
+    # POC gets a naive O(nm) algorithm for now. Sorry.
+    for new_commit in ${new_commits}
+    do
+        new_change_id=$(get_change_id ${new_commit})
+        if [ $? -ne 0 ]
+        then
+            echo >&2 "Cannot get change id for local commit: ${new_commit}"
+            exit 1
+        fi
+
+        for old_commit in $(git log --pretty=%H ${old_range})
+        do
+            old_change_id=$(get_change_id ${old_commit})
+            if [ $? -ne 0 ]
+            then
+                echo >&2 "Cannot get change id for upstream commit: ${old_commit}"
+                exit 1
+            fi
+
+            [ "$old_change_id" != "$new_change_id" ] && continue
+
+            if ! reachable ${new_commit} ${old_commit}
+            then
+                echo "Updating change ${new_change_id} is not fast-forward"
+                echo "   Local change head: ${new_commit}"
+                echo "   Upstream change head: ${old_commit}"
+                exit 1
+            fi
+        done
+    done
+done
+
+exit 0

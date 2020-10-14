@@ -75,6 +75,12 @@ assert_revs_equal() {
     fi
 }
 
+# This doesn't look like much but it fails under `set -e` when the sub-command
+# succeeds. The `!` operator doesn't do this on its own.
+not() {
+    ! ${1+"$@"}
+}
+
 # ed_it makes it convenient to use `git rebase --interactive` non-interactively
 # by supplying `ed` commands on stdin to edit the commit list. It writes the
 # commands as a bash script to a temporary file and sets that script as EDITOR.
