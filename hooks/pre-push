@@ -1,8 +1,10 @@
 #!/bin/bash -x
 
+[ "$PRE_PUSH_CHANGES_PASS" = 1 ] && exit 0
+
 # If this hook is not being called to figure out what changes to push, just
 # exit with 0 to allow the push to proceed.
-[ -z "$PRE_PUSH_CHANGES_REFS" ] && exit 0
+[ -z "$PRE_PUSH_CHANGES_REFS" ] && exec "$(dirname $(readlink -f "$0"))/pre-push-no-clobber" ${1+"$@"}
 
 . "$(dirname $(readlink -f "$0"))/common.sh"
 

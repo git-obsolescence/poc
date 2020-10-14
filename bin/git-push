@@ -44,7 +44,7 @@ PRE_PUSH_CHANGES_REFS=${hook_output} git push ${force} ${1+"$@"}
 args=($(<${hook_output}))
 if [ ${#args[@]} -gt 1 ]
 then
-    git push "${args[@]}"
+    PRE_PUSH_CHANGES_PASS=1 git push "${args[@]}"
 fi
 
 # Third and final run to get the original intent of the push
