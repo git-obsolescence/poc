@@ -1,0 +1,57 @@
+#!/bin/bash -x
+
+projectdir=$(cd $(dirname "$0")/.. && pwd)
+. ${projectdir}/hooks/common.sh
+
+# This wrapper attempts to fetch from a remote *and* grab intermediate obsolete
+# commits in the obsolescence graph for each change that it fetches.
+
+# git fetch doesn't run any hooks like git-push does so using the same approach
+# isn't possible.
+
+fetch_file=$(git rev-parse --git-dir)/FETCH_HEAD
+# First run does the intended fetch
+git fetch ${1+"$@"}
+
+# Save the FETCH_HEAD file and put it back at the end
+cp ${fetch_file}{,.save}
+trap "cp ${fetch_file}{.save,}" EXIT
+
+# Get the remote URL. Assumes only one remote. This is why fetch doesn't work
+# for multiple remotes.
+remote=$(awk '{print$NF;exit}' ${fetch_file})
+
+# needed builds a list of commits that we know are needed based on reading the
+# obsoletes trailers in the new commits and following the obsolescence graph
+# until referenced commits are missing.
+needed() {
+    # Lists new commits by running git log on the fetched HEADS and excluding
+    # anything reachable from local refs.
+    new_commits=$(git log --pretty=%H ${1+"$@"} $(git show-ref --heads | awk '{print"^"$1}'))
+
+    for commit in $new_commits
+    do
+        list_missing_commits $commit
+    done | sort -u
+}
+
+# Repeatedly fetch missing obsolete commits until we have them all.
+# Yeah, I know. I couldn't think of a way to figure out all of the refs to
+# fetch the first time.
+while true
+do
+    fetched=$(awk '{print$1}' ${fetch_file})
+    fetchme=$(needed ${fetched})
+
+    [ -z "${fetchme}" ] && break
+
+    git fetch ${remote} ${fetchme}
+done
+
+# Pin newly fetched obsolete commits to the repository
+fetched=$(awk '{print$1}' ${fetch_file}.save)
+new_commits=$(git log --pretty=%H ${1+"$@"} $(git show-ref --heads | awk '{print"^"$1}'))
+for commit in ${new_commits}
+do
+    pin_change $commit
+done

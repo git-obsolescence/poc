@@ -48,6 +48,22 @@ get_change_id() {
     get_change_id ${first_edge}
 }
 
+# list_missing_commits lists commits that are known to be missing from the
+# local repository to complete the obsolescence graph for a change.
+list_missing_commits() {
+    local commit=$1
+
+    for obsolete in $(list_obsoletes ${commit})
+    do
+        if verify_commit ${obsolete} >/dev/null
+        then
+            list_missing_commits ${obsolete}
+        else
+            echo ${obsolete}
+        fi
+    done | sort -u
+}
+
 # pin_change_recursive is a helper that shouldn't be called directly.
 pin_change_recursive() {
     local change_id=$1
