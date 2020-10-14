@@ -88,23 +88,13 @@ do
         git commit-tree ${tree} "${parents[@]}")
     parents=(-p $parent)
 
+    pin_change ${parent}
+
     echo "${parent} obsoletes the following commits"
     for old_sha in ${old_shas}
     do
         echo "    -> ${old_sha}"
     done
-done
-
-# Obsolete commits are now orphaned as far as git is concerned. This means they
-# will eventually be pruned from object storage unless something is done to
-# keep them around.
-#
-# To accomplish this, this hook writes a reference for each orphaned commit
-# under the refs/cheads/ namespace. They are organized by the change id of the
-# change to which they belong.#
-for old_sha in $(cut -d ' ' -f 1 ${rewrites_file} | uniq)
-do
-    git update-ref refs/cheads/$(get_change_id $old_sha)/${old_sha} ${old_sha}
 done
 
 echo Finished running the post-rewrite hook

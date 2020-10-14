@@ -1,0 +1,33 @@
+#!/bin/bash -ex
+
+. "$(dirname "$0")/common.sh"
+
+branch=$(git branch --show-current)
+
+########################################################################
+# Setup
+#
+########################################################################
+
+touch one && git add one
+git commit -m "First commit"
+git push origin ${branch}
+
+pushd ..
+git clone remote copy
+popd
+
+########################################################################
+# Create a change with at least one obsolete commit and push them to the remote
+#
+########################################################################
+touch two && git add two
+git commit -m "Amend me"
+echo "amend" > two
+git commit -a --amend --no-edit
+change_id=$(get_change_id HEAD)
+git push origin ${branch}
+
+pushd ../copy
+$POC_SHELL git fetch origin
+assert_revs_equal "change_id is available in copy repo" ${change_id} $(get_change_id origin/${branch})

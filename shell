@@ -35,6 +35,7 @@ fi
 # Adjust $PATH with the local scripts directory at the front
 mydir=$(cd $(dirname "$0") && pwd)
 export PATH=${mydir}/bin:$PATH
+export POC_SHELL=${mydir}/shell
 
 hookdir=$(git rev-parse --git-dir)/hooks
 if [ -L "${hookdir}/post-rewrite" ]

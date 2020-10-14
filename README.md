@@ -23,6 +23,7 @@ condusive to getting the POC done in a shorter amount of time.
 - git fetch is similarly slow due to having to hit the remote server multiple
   times.
 - git pull is not supported. Use git fetch.
+- git fetch from multiple remotes doesn't work
 
 ## How to use it
 
