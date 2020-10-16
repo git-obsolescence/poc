@@ -1,0 +1,280 @@
+#!/usr/bin/env bash -x
+# NOTE: This needs a newer bash than MacOS ships with. Hence, not using /bin/bash
+
+# I'm not sure how to POC this without reimplementing much of what rebase
+# already does. Until I get the critical mass of rebase functionality working,
+# we'll have to carefully walk a thin line between implementing functionality
+# in this script and deferring to regular git-rebase.
+
+# I considered calling this "git evolve" following the example set in
+# mercurial. However, that changes the user's workflow putting the decision to
+# use it squarely on them. A goal is to eventaully prove that all of this can
+# and should be baked into git rebase itself. It should not  be up to the user
+# to know which one to use.
+
+########################################################################
+# Quick and dirty options parsing
+########################################################################
+
+opt_keep_base=false
+opt_root=false
+opt_interactive=false
+opt_onto=
+opt_exec=
+
+opt_upstream=
+opt_branch=
+
+original_options=("$@")
+extra_opts=()
+while [ $# -gt 0 ]
+do
+    case $1 in
+    --root) opt_root=true ; shift ;;
+    --keep-base) opt_keep_base=true ; shift ;;
+    -i|--interactive) opt_interactive=true ; shift ;;
+
+    -x|--exec) opt_exec=$2 ; shift 2 ;;
+    --onto) opt_onto=$2 ; shift 2 ;;
+
+    --continue|--skip|--abort|--quit|--edit-todo|--show-current-patch)
+        exec git rebase "${original_options[@]}"
+    ;;
+
+    *) extra_opts+=($1) ; shift ;;
+    esac
+done
+
+if ${opt_keep_base} || (${opt_root} && [ -z "${opt_onto}" ])
+then
+    # If the base remains the same, defer everything to normal git rebase.
+    exec git rebase "${original_options[@]}"
+fi
+
+set -- "${extra_opts[@]}"
+
+if ! $opt_root && [ $# -ne 0 ]
+then
+    opt_upstream=$1
+    shift
+fi
+
+if [ $# -ne 0 ]
+then
+    opt_branch=$1
+    shift
+fi
+
+########################################################################
+# Lots and lots of unimplemented cases to check ...
+########################################################################
+
+die() {
+    echo >&2 ${1+"$@"}
+    exit 1
+}
+
+[ $# -ne 0 ] && die "Unparsed options I don't understand: $@"
+
+${opt_root} && die "--root not supported with obsolescence"
+
+$opt_interactive && die "Interactive rebasing not yet supported. Use --keep-base for now"
+[ -n "$opt_exec" ] && die "Interactive rebasing not yet supported (--exec). Use --keep-base for now"
+
+[ -z "$opt_upstream" ] && die "For now, explicitly specify the upstream branch when using obsolescence"
+[ -n "$opt_branch" ] && die "For now, don't specify branch when using obsolescence. Use git switch first."
+
+########################################################################
+# Get down to business
+########################################################################
+
+projectdir=$(cd $(dirname "$0")/.. && pwd)
+. ${projectdir}/hooks/common.sh
+
+# TODO(Carl) Consider keeping this state in the .git directory
+export TMPDIR=$(mktemp -d -t git-rebase.XXXXXX)
+
+# commits introduced by local branch
+git >$TMPDIR/new_commits log --topo-order --pretty=%H --reverse ${opt_upstream}..HEAD
+new_commits=$(<$TMPDIR/new_commits)
+
+# upstream commits which aren't in the local branch
+git >$TMPDIR/upstream_commits log --topo-order --pretty=%H  --reverse HEAD..${opt_upstream}
+upstream_commits=$(<$TMPDIR/upstream_commits)
+
+merge_base=$(git merge-base HEAD ${opt_upstream})
+
+previous="<base>"
+for commit in ${new_commits}
+do
+    change_id=$(get_change_id ${commit})
+    if [ $? -ne 0 ]
+    then
+        echo >&2 "Couldn't find change_id for ${commit}"
+        exit 1
+    fi
+    echo >>$TMPDIR/new_changes "${change_id} ${commit}"
+    echo >>$TMPDIR/dag "${change_id} ${previous} 5"
+    previous=${change_id}
+done
+
+[ $? -ne 0 ] && exit 1
+
+previous="<base>"
+for commit in ${upstream_commits}
+do
+    # Upstream is not required to have full obsolescence graphs for all
+    # changes. If it doesn't, assume that the change doesn't exist locally.
+    # Use the commit id as a stand-in for the change id if necessary.
+    change_id=$(get_change_id ${commit} || echo ${commit})
+    echo >>$TMPDIR/upstream_changes "${change_id} ${commit}"
+    echo >>$TMPDIR/dag "${change_id} ${previous} 4"
+    previous=${change_id}
+done
+
+# The following is a work-in-progress to demonstrate the concept on a simple
+# case in a short amount of time. It will take some iterations and time to get
+# this right.
+
+# TODO(Carl) This algorithm should be biased to place changes added locally
+# toward the end of the list and changes added upstream to the beginning.
+awk '{print$1,$2}' $TMPDIR/dag | tsort >$TMPDIR/total_order
+if [ $? -ne 0 ]
+then
+    # TODO(Carl) breaks cycles until it can be ordered.
+    die "tsort failed (presumably a cycle), implement me"
+fi
+
+total_order=$(tac $TMPDIR/total_order | grep -v "<base>")
+
+# TODO(Carl) Honor autostash
+# TODO(Carl) Save the currently checked-out state so that we can abort
+
+git switch --detach ${merge_base}
+
+# reachable_recursive is a helper that shouldn't be called directly
+reachable_recursive() {
+    local me=$1
+    visited[$me]=1
+
+    [ "$me" = "$quarry" ] && return 0
+
+    for adjacent in $(list_obsoletes $me)
+    do
+        [ "$visited[$adjacent]" != 1 ] && reachable_recursive "$adjacent" && return 0
+    done
+    return 1
+}
+
+# reachable returns 0 if the second argument is reachable over the obsolescence
+# graph from the first. Otherwise, it returns non-zero. If the two are equal,
+# it considers them reachable (returns 0).
+reachable() {
+    local quarry=$2
+    local -A visited
+    reachable_recursive $1
+}
+
+# commits_in_change_recursive is a helper not meant to be called 
+commits_in_change_recursive() {
+    local me=$1
+    visited[$me]=1
+
+    for adjacent in $(list_obsoletes $me)
+    do
+        [ "$visited[$adjacent]" != 1 ] && commits_in_change_recursive "${adjacent}"
+    done
+
+    echo "$me"
+}
+
+# lists all of the commits reachable from the commit in the obsolescence graph
+commits_in_change() {
+    local -A visited
+    commits_in_change_recursive "$1"
+}
+
+# get_change_base returns the nearest common commit in the obsolescence graph.
+# This is analogous to git-merge-base except that it follows obsolescence
+# graphs and is probably a lot more naive.
+get_change_base() {
+    local a=$1
+    local b=$2
+
+    # Write all of the commits reachable from the two commits in topological order
+    commits_in_change $a >$TMPDIR/a
+    commits_in_change $b >$TMPDIR/b
+
+    # Print the lines common to the two and tail the last one as the change base.
+    fgrep --line-regexp --file $TMPDIR/a $TMPDIR/b | tail -n1
+}
+
+for change in ${total_order}
+do
+    new_commit=$(awk -v change=${change} '$1 == change {print$2}' $TMPDIR/new_changes)
+    upstream_commit=$(awk -v change=${change} '$1 == change {print$2}' $TMPDIR/upstream_changes)
+
+    # TODO(Carl) a change might be missing from one side or the other because
+    # it was removed. Need to figure out if the change was reference from any
+    # of the common change history.
+
+    if [ -z "${new_commit}" ]
+    then
+        git cherry-pick --ff ${upstream_commit}
+        if [ $? -ne 0 ]
+        then
+            die "cherry-pick of upstream (${upstream_commit}) failed. implement me"
+        fi
+	continue
+    fi
+
+    if [ -z "${upstream_commit}" ]
+    then
+        git cherry-pick --ff ${new_commit}
+        if [ $? -ne 0 ]
+        then
+            die "cherry-pick of local (${new_commit}) failed. implement me"
+        fi
+	continue
+    fi
+
+    # Change exists in both branches. We need to find where it is common.
+    base=$(get_change_base ${new_commit} ${upstream_commit})
+
+    # Cherry-pick all three to the current HEAD so that they can be merged
+    git cherry-pick --ff ${base}
+    [ $? -eq 0 ] || die "cherry-picking the base commit failed"
+    base_rebased=$(git rev-parse HEAD)
+    git reset --hard HEAD~
+
+    git cherry-pick --ff ${upstream_commit}
+    [ $? -eq 0 ] || die "cherry-picking the upstream commit failed"
+    upstream_rebased=$(git rev-parse HEAD)
+    git reset --hard HEAD~
+
+    git cherry-pick --ff ${new_commit}
+    [ $? -eq 0 ] || die "cherry-picking the new commit failed"
+    new_rebased=$(git rev-parse HEAD)
+    git reset --hard HEAD~
+
+    git read-tree -m -u ${base_rebased} ${new_rebased} ${upstream_rebased}
+
+    trailers=(--trailer obsoletes:${upstream_commit} --trailer obsoletes:${new_commit})
+
+    tree=$(git write-tree)
+    if [ $? -ne 0 ]
+    then
+        die "Write tree failed"
+    fi
+
+    # TODO(Carl) Merge commit messages? How would conflicts be handled.
+    commit=$(git log -1 --pretty=%B ${new_commit} |
+        grep -v "^obsoletes: " |
+        git interpret-trailers "${trailers[@]}" |
+        git commit-tree ${tree} -p HEAD)
+    if [ $? -ne 0 ]
+    then
+        die "Commit failed"
+    fi
+    git reset ${commit}
+done

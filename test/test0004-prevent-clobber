@@ -48,3 +48,11 @@ git commit --amend --no-edit
 # made in the other workspace. With obsolescence, it fails.
 git fetch origin ${branch}
 not git push origin ${branch}
+
+git rebase origin/${branch}
+
+# Workspace should be clean
+test -z "$(git status --porcelain)"
+test "" = "$(<one)"
+test "fixed" = "$(<two)"
+test "new stuff" = "$(<three)"

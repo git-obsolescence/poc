@@ -61,7 +61,7 @@ git commit -m "squash three" three
 
 old_head=$(git rev-parse HEAD)
 
-ed_it git rebase --autosquash --interactive ${old_head}~3 <<ED
+ed_it git rebase --autosquash --interactive --keep-base ${old_head}~3 <<ED
 2,3s/^pick/fixup/
 w
 ED
@@ -94,7 +94,7 @@ git commit -m "split me" one two
 
 old_head=$(git rev-parse HEAD)
 
-ed_it git rebase --interactive ${old_head}~ <<ED
+ed_it git rebase --interactive --keep-base ${old_head}~ <<ED
 1,s/^pick/edit/
 w
 ED
@@ -121,7 +121,7 @@ git commit -m "reorder me" three
 old_head=$(git rev-parse HEAD)
 
 # Move the earliest commit to be the last commit with ed move command
-ed_it git rebase --interactive HEAD~3 <<ED
+ed_it git rebase --interactive --keep-base HEAD~3 <<ED
 1m3
 w
 ED

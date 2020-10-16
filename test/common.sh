@@ -33,6 +33,7 @@ else
         rm -rf $TEST_TMP_DIR
     }
     trap cleanup EXIT
+    trap troubleshoot ERR
 fi
 
 export GIT_AUTHOR_NAME="Test Author"
