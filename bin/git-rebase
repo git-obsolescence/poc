@@ -1,4 +1,4 @@
-#!/usr/bin/env bash -x
+#!/usr/bin/env bash
 # NOTE: This needs a newer bash than MacOS ships with. Hence, not using /bin/bash
 
 # I'm not sure how to POC this without reimplementing much of what rebase

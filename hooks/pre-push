@@ -1,4 +1,10 @@
-#!/bin/bash -x
+#!/bin/bash
+
+if [ "$OBSOLESCENCE_POC" -ne 1 ]
+then
+    echo >&2 "Use https://github.com/git-obsolescence/poc to push"
+    exit 1
+fi
 
 [ "$PRE_PUSH_CHANGES_PASS" = 1 ] && exit 0
 
