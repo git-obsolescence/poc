@@ -28,6 +28,8 @@ case $exe_name in
   git-*) subcommand=${exe_name/git-/}
 esac
 
+export OBSOLESCENCE_POC=1
+
 if [ -n "${subcommand}" -a -x "${mydir}/git-${subcommand}" ]
 then
     exec ${mydir}/git-${subcommand} ${1+"$@"}
