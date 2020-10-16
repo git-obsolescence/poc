@@ -27,7 +27,7 @@ remote=$(awk '{print$NF;exit}' ${fetch_file})
 needed() {
     # Lists new commits by running git log on the fetched HEADS and excluding
     # anything reachable from local refs.
-    new_commits=$(git log --pretty=%H ${1+"$@"} $(git show-ref --heads | awk '{print"^"$1}'))
+    new_commits=$(git log --pretty=%H ${1+"$@"} --not $(git show-ref --heads --hash))
 
     for commit in $new_commits
     do

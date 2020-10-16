@@ -1,0 +1,100 @@
+Rebasing with obsolescence should feel about the same as running rebase without
+obsolescence but under the hood a few very complex things need to happen to do
+the right thing when changes can evolve differently both upstream and locally.
+Following is a description of what needs to happen when a rebase is requested
+and obsolescence is used.
+
+1. Calculate which commits have been introduced by branch (as before)
+2. Calculate the new base tip on which to apply the new commits (as before).
+3. Identify all of the changes involved on both sides, both the local and
+   upstream branches.
+
+   - a change can include a different commit on both sides.
+   - changes can be added, dropped, modified, reordered, combined, and split on
+   either side, or sometimes both sides.
+
+4. Determine the list of changes that should appear in the result.
+
+   - Unless a change was removed on either side, it should appear in the
+     result. To determine if a change was removed, we need to know if the
+     change existed before the two branches diverged. This requires looking at
+     more than just git's merge base. We need to traverse the obsolescence
+     graph of the changes involved to see if the change is reachable from any
+     of the obsolete commits that are shared between the two sides.
+
+     1. A change was added if it doesn't appear in the common change history
+
+	- It is impossible for a change to be added to both sides. Two
+	  different changes can be added that accomplish the same thing.
+     2. A change was removed if it is reachable in the common history but not
+     on one or both sides.
+
+5. Determine a total ordering of changes to include in the result
+
+   - This is tricky since changes can be reordered on both sides in conflicting
+     ways.
+
+     To accomplish this, start by building a directed graph of changes where an
+     edge points from a change to the change the precedes it. It is derived
+     from the git commit graph on both sides except that the nodes in the graph
+     are changes rather than commits. So, each commit id must be converted to a
+     change id.
+
+     Note that this graph is not necessarily acyclic since any single change
+     can be represented by a different commit in both sides and they can be
+     reordered. Reordering commits introduces cycles in the change graph.
+
+     To obtain a total ordering, edges must be removed from this graph until
+     the result is a true DAG.
+
+     What edges can be removed? Is a total ordering guaranteed? This algorithm
+     attaches a weight to each edge. When a cycle is encountered, the an edge
+     with the lowest weight of all of the edges in the cycle can be removed to
+     break it.
+
+     1. If an edge appears in both sides, it has the highest weight
+        - In this case, the edge appears on both sides and in the common
+          change history. It is impossible for a change to appear on both
+          sides but not in the common history.
+     2. If an edge is added to one side, it has medium weight
+     3. If an edge is removed from one side, it has a lower weight
+     3. If a change is removed from one side entirely, it should be removed
+        from the graph entirely and through edges must be added to the graph to
+        maintain connectivity.
+     4. We need to be able to break ties between edges added upstream and
+        edges added locally. So, edges added locally need slightly more weight.
+     5. Changes added to the upstream side should be applied before changes
+        added locally where possible.
+
+6. Reapply the changes in the determined order. This needs to consider that
+   each change could have been modified differently upstream and locally. A
+   simple three-way merge of the commits won't work since each commit could
+   have a different parent.
+
+   To merge these together, the three commits all need to be cherry-picked to
+   the same base. Then, a three-way merge can be performed.
+
+   There are multiple places where conflicts can happen here. I'm not entirely
+   sure what the best way to handle these is. One way is to accumulate all of
+   the conflict markers until the end. This is likely to work well in many
+   cases and save a little bit of time. It should also be easier for the user
+   to think about it since they don't have to understand the subtleties of the
+   different contexts in which conflicts might arise.
+
+   On the other hand, in some more complex cases, accumulating conflict markers
+   until the end could create a practically unintelligible mess. I'm not really
+   sure what to do about this yet. I will point out, though, that these
+   situations can already arise in git today. Without obsolescence, they are
+   still complex and difficult to work out except that it is up to the user to
+   work it all out. In many cases,
+
+Normal git rebase does not rewrite upstream history. The above algorithm can.
+It assumes that the upstream branch is malleable enough to do so. It is
+unlikely that any project's production branch would ever qualify as such.
+However, development branches such as one at the base of a github PR or a
+gerrit change (or set of dependent changes) can be considered malleable.
+
+A project's shared remote repository can be configured to reject rewrites to
+stable branches. Ideally, though, this command will be able to tell the
+difference locally and refuse to rebase a local branch that rewrites the
+history of any stable changes. More thought needs to be put into this.
