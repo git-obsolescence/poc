@@ -15,7 +15,9 @@ git push origin ${branch}
 
 pushd ..
 git clone remote copy
-popd
+pushd copy
+$POC_SETUP
+popd && popd
 
 ########################################################################
 # Create a change, amend it in a different workspace and then amend it
@@ -29,13 +31,13 @@ git commit -m "proposed code"
 git push origin ${branch}
 
 pushd ../copy
-$POC_SHELL git fetch origin
+git fetch origin
 git merge origin/${branch}
 
 echo "fixed" > two
 git add two
-$POC_SHELL git commit --amend --no-edit
-$POC_SHELL git push origin
+git commit --amend --no-edit
+git push origin
 popd
 
 # Amend the original commit without first pulling the fix from the other

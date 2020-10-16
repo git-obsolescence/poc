@@ -15,7 +15,9 @@ git push origin ${branch}
 
 pushd ..
 git clone remote copy
-popd
+pushd copy
+$POC_SETUP
+popd && popd
 
 ########################################################################
 # Create a change with at least one obsolete commit and push them to the remote
@@ -29,5 +31,5 @@ change_id=$(get_change_id HEAD)
 git push origin ${branch}
 
 pushd ../copy
-$POC_SHELL git fetch origin
+git fetch origin
 assert_revs_equal "change_id is available in copy repo" ${change_id} $(get_change_id origin/${branch})
