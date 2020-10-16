@@ -1,11 +1,24 @@
 #!/bin/bash
 
+# If you're on a mac, please install GNU coreutils. Since this is a POC, I
+# didn't want to deal with mktemp, readlink, tsort, and potentially other
+# incompatibilities.
+if [ -d "/usr/local/opt/coreutils/libexec/gnubin" ]
+then
+    export PATH=/usr/local/opt/coreutils/libexec/gnubin:$PATH
+fi
+
 mydir=$(dirname "$0")
 
 # TODO(Carl) Could this be more robust? It is a POC afterall.
 # Remove the directory this script was found in from the path so that recursive
 # invocations of git call "real" git.
 export PATH=$(echo "$PATH" | sed s,${mydir}:,,g)
+
+if test -L "$0"
+then
+    mydir=$(dirname "$(readlink -f "$0")")
+fi
 
 exe_name=$(basename $0)
 

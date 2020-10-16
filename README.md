@@ -44,3 +44,21 @@ because you may end up having commits with useless "obsoletes:" trailers in the
 commit message. They are harmless except that they could be confusing if they
 end up getting merged into a public repository where most contributors aren't
 aware of what they are for.
+
+### More permanent alternative
+
+The shell command above works if you want to just try out the code on a
+repository without permanently turning on obsolescence. If you want to more
+permanently convert your local repository, you can run the `setup-repo` script
+from this project with your current working directory set to somewhere inside
+the repo.
+
+When you do this, you also need to symlink the `bin/git` script from this
+repository to a directory that comes before where your shell would normally find
+the git command. For example, say that you have `~/bin` at the front of your
+path. You can run something like this where `$THIS_REPOSITORY` is the path to
+where you've cloned this repo.
+
+    $ cd ~/bin && ln -sf $THIS_REPOSITORY/bin/git .
+
+It is important that a symlink is used rather than just a copy of the script.
