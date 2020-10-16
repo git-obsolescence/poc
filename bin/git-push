@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 # This wrapper attempts to figure out what changes are being pushed to the
 # remote. My first thought was to do this by inspected the arguments that were

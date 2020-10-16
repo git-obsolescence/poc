@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 [ "$PRE_PUSH_CHANGES_PASS" = 1 ] && exit 0
 
