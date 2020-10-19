@@ -48,10 +48,14 @@ git commit --amend --no-edit
 
 # Using non-obsolescence aware git, this push would succeed and clobber the fix
 # made in the other workspace. With obsolescence, it fails.
+not git push origin ${branch}
 git fetch origin ${branch}
 not git push origin ${branch}
 
 git rebase origin/${branch}
+test "${branch}" = "$(git branch --show-current)"
+
+git push origin ${branch}
 
 # Workspace should be clean
 test -z "$(git status --porcelain)"
