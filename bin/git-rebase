@@ -98,6 +98,10 @@ trap "rm -rf $TMPDIR" EXIT
 # commits introduced by local branch
 git >$TMPDIR/new_commits log --topo-order --pretty=%H --reverse ${opt_upstream}..HEAD
 new_commits=$(<$TMPDIR/new_commits)
+if [ -z "${new_commits}" ]
+then
+    exec git rebase "${original_options[@]}"
+fi
 
 # upstream commits which aren't in the local branch
 git >$TMPDIR/upstream_commits log --topo-order --pretty=%H  --reverse HEAD..${opt_upstream}
