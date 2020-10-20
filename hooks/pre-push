@@ -1,5 +1,17 @@
 #!/bin/bash
 
+if [ "$(readlink -f / 2>/dev/null)" != "/" ]
+then
+    # Since this is a POC, I didn't want to deal with mktemp, readlink, tsort,
+    # and potentially other incompatibilities.
+    export PATH=/usr/local/opt/coreutils/libexec/gnubin:$PATH
+    if [ "$(readlink -f / 2>/dev/null)" != "/" ]
+    then
+        echo >&2 "If you're on a mac, please install GNU coreutils."
+        exit 1
+    fi
+fi
+
 if [ "$OBSOLESCENCE_POC" -ne 1 ]
 then
     echo >&2 "Use https://github.com/git-obsolescence/poc to push"

@@ -3,11 +3,16 @@ projectdir=$(cd $(dirname "$0")/.. && pwd)
 # Common test initialization. Create a new git workspace and set it up
 if [ -z "$TEST_TMP_DIR" ]
 then
-    # If you're on a mac, please install GNU coreutils. Sorry, no time to fight
-    # with mktemp incompatibilities.
-    if [ -d "/usr/local/opt/coreutils/libexec/gnubin" ]
+    if [ "$(readlink -f / 2>/dev/null)" != "/" ]
     then
+        # Since this is a POC, I didn't want to deal with mktemp, readlink, tsort,
+        # and potentially other incompatibilities.
         export PATH=/usr/local/opt/coreutils/libexec/gnubin:$PATH
+        if [ "$(readlink -f / 2>/dev/null)" != "/" ]
+        then
+            echo >&2 "If you're on a mac, please install GNU coreutils."
+            exit 1
+        fi
     fi
 
     export TEST_TMP_DIR=$(mktemp -d -t obsolescence.XXXXXX)
