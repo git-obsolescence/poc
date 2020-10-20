@@ -150,6 +150,7 @@ total_order=$(tac $TMPDIR/total_order | grep -v "<base>")
 # TODO(Carl) Honor autostash
 # TODO(Carl) Save the currently checked-out state so that we can abort
 
+original_branch=$(git branch --show-current)
 git switch --detach ${merge_base}
 
 # reachable_recursive is a helper that shouldn't be called directly
@@ -278,3 +279,8 @@ do
     fi
     git reset ${commit}
 done
+
+if [ -n "${original_branch}" ]
+then
+    git checkout -B ${original_branch}
+fi

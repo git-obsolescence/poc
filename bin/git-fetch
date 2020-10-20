@@ -50,7 +50,7 @@ done
 
 # Pin newly fetched obsolete commits to the repository
 fetched=$(awk '{print$1}' ${fetch_file}.save)
-new_commits=$(git log --pretty=%H ${1+"$@"} $(git show-ref --heads | awk '{print"^"$1}'))
+new_commits=$(git log --pretty=%H ${fetched} --not $(git show-ref --heads --hash))
 for commit in ${new_commits}
 do
     pin_change $commit
