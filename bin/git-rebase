@@ -226,7 +226,7 @@ do
         then
             die "cherry-pick of upstream (${upstream_commit}) failed. implement me"
         fi
-	continue
+        continue
     fi
 
     if [ -z "${upstream_commit}" ]
@@ -236,7 +236,7 @@ do
         then
             die "cherry-pick of local (${new_commit}) failed. implement me"
         fi
-	continue
+        continue
     fi
 
     # Change exists in both branches. We need to find where it is common.

@@ -24,8 +24,8 @@ and obsolescence is used.
 
      1. A change was added if it doesn't appear in the common change history
 
-	- It is impossible for a change to be added to both sides. Two
-	  different changes can be added that accomplish the same thing.
+        - It is impossible for a change to be added to both sides. Two
+          different changes can be added that accomplish the same thing.
      2. A change was removed if it is reachable in the common history but not
      on one or both sides.
 
