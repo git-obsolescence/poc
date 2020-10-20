@@ -25,12 +25,10 @@
 # orphoned first and then, finally, make the original git push to get the
 # original intent. Not great, but it should be functional.
 
-# TODO(Carl) Check to see if force is requested.
-force=--force
 for arg in ${1+"$@"}
 do
     case $arg in
-    -f|--force) force= ;;
+    -f|--force) echo >&2 "You should no longer use --force with git push"; exit 1 ;;
     esac
 done
 
@@ -38,7 +36,7 @@ hook_output=$(mktemp -t push-refs.XXXXXX)
 trap "rm -f ${hook_output}" EXIT
 
 # First run
-PRE_PUSH_CHANGES_REFS=${hook_output} git push ${force} ${1+"$@"}
+PRE_PUSH_CHANGES_REFS=${hook_output} git push ${1+"$@"}
 
 # Second run
 args=($(<${hook_output}))
@@ -48,4 +46,4 @@ then
 fi
 
 # Third and final run to get the original intent of the push
-git push ${force} ${1+"$@"}
+git push --force-with-lease ${1+"$@"}
