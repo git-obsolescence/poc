@@ -93,6 +93,7 @@ projectdir=$(cd $(dirname "$0")/.. && pwd)
 
 # TODO(Carl) Consider keeping this state in the .git directory
 export TMPDIR=$(mktemp -d -t git-rebase.XXXXXX)
+trap "rm -rf $TMPDIR" EXIT
 
 # commits introduced by local branch
 git >$TMPDIR/new_commits log --topo-order --pretty=%H --reverse ${opt_upstream}..HEAD
