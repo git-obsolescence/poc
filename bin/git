@@ -15,6 +15,9 @@ mydir=$(dirname "$0")
 # invocations of git call "real" git.
 export PATH=$(echo "$PATH" | sed s,${mydir}:,,g)
 
+# Sometimes it is on the $PATH in multiple places.
+[ "$OBSOLESCENCE_POC" = 1 ] && exec $(basename "$0") ${1+"$@"}
+
 if test -L "$0"
 then
     mydir=$(dirname "$(readlink -f "$0")")
