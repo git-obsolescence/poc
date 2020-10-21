@@ -28,7 +28,7 @@
 for arg in ${1+"$@"}
 do
     case $arg in
-    -f|--force) echo >&2 "You should no longer use --force with git push"; exit 1 ;;
+    -f|--force*) echo >&2 "You should no longer use --force with git push"; exit 1 ;;
     esac
 done
 
@@ -36,7 +36,7 @@ hook_output=$(mktemp -t push-refs.XXXXXX)
 trap "rm -f ${hook_output}" EXIT
 
 # First run
-PRE_PUSH_CHANGES_REFS=${hook_output} git push ${1+"$@"}
+PRE_PUSH_CHANGES_REFS=${hook_output} git push --force-with-lease ${1+"$@"}
 
 # Second run
 args=($(<${hook_output}))
