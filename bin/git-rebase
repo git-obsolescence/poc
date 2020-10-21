@@ -93,10 +93,15 @@ projectdir=$(cd $(dirname "$0")/.. && pwd)
 
 # TODO(Carl) Consider keeping this state in the .git directory
 export TMPDIR=$(mktemp -d -t git-rebase.XXXXXX)
+trap "rm -rf $TMPDIR" EXIT
 
 # commits introduced by local branch
 git >$TMPDIR/new_commits log --topo-order --pretty=%H --reverse ${opt_upstream}..HEAD
 new_commits=$(<$TMPDIR/new_commits)
+if [ -z "${new_commits}" ]
+then
+    exec git rebase "${original_options[@]}"
+fi
 
 # upstream commits which aren't in the local branch
 git >$TMPDIR/upstream_commits log --topo-order --pretty=%H  --reverse HEAD..${opt_upstream}
@@ -226,7 +231,7 @@ do
         then
             die "cherry-pick of upstream (${upstream_commit}) failed. implement me"
         fi
-	continue
+        continue
     fi
 
     if [ -z "${upstream_commit}" ]
@@ -236,7 +241,7 @@ do
         then
             die "cherry-pick of local (${new_commit}) failed. implement me"
         fi
-	continue
+        continue
     fi
 
     # Change exists in both branches. We need to find where it is common.

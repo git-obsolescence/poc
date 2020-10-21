@@ -1,0 +1,32 @@
+#!/bin/bash -ex
+
+. "$(dirname "$0")/common.sh"
+
+########################################################################
+# Test rebase one branch to another where all branches are divergent
+#
+# Amends the HEAD commit and tests that the obsolescence graph is added.
+#
+########################################################################
+
+branch=$(git branch --show-current)
+touch base && git add base
+git commit -m "Base commit"
+
+git switch -c a
+touch a && git add a
+git commit -m "A commit"
+
+git switch $branch
+touch upstream && git add upstream
+git commit -m "Upstream commit"
+
+git switch -c b
+touch two && git add two
+git commit -m "B commit"
+
+touch three && git add three
+git commit -m "B2 commit"
+
+/usr/bin/git rebase ${branch} --onto a
+assert_revs_equal "new base" a HEAD~2
