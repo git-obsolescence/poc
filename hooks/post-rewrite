@@ -42,9 +42,22 @@ cat > ${rewrites_file}
 # The following works back through the log of new commits starting from the new
 # HEAD. This is the reverse order as the rewrites are fed into stdin. So, we
 # need to be careful to work through the file in reverse. Hence the use of tac.
-oldhead=$(awk 'END{print$1}' ${rewrites_file})
+newbase=$(awk '{print$2"~";exit}' ${rewrites_file})
 newhead=$(awk 'END{print$2}' ${rewrites_file})
-for new_sha in $(git log --topo-order --pretty=%H ${oldhead}..${newhead})
+if [ -f ".git/rebase-merge/onto" ]
+then
+    onto=$(<.git/rebase-merge/onto)
+    range="${onto}..${newhead}"
+elif verify_commit ${newbase}
+then
+    range="${newbase}..${newhead}"
+else
+    # Rebasing from the project root. All commits are new
+    range=${newhead}
+fi
+
+# for new_sha in $(awk '{print$2}' ${rewrites_file} | uniq | tac)
+for new_sha in $(git log --topo-order --pretty=%H ${range})
 do
     old_shas=$(awk -v sha=${new_sha} '$2 == sha {print$1}' ${rewrites_file} | tac)
     if [ -z "$old_shas" ]
