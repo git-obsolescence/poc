@@ -107,8 +107,6 @@ fi
 git >$TMPDIR/upstream_commits log --topo-order --pretty=%H  --reverse HEAD..${opt_upstream}
 upstream_commits=$(<$TMPDIR/upstream_commits)
 
-merge_base=$(git merge-base HEAD ${opt_upstream})
-
 previous="<base>"
 for commit in ${new_commits}
 do
@@ -156,7 +154,7 @@ total_order=$(tac $TMPDIR/total_order | grep -v "<base>")
 # TODO(Carl) Save the currently checked-out state so that we can abort
 
 original_branch=$(git branch --show-current)
-git switch --detach ${merge_base}
+git switch --detach $(git merge-base HEAD ${opt_upstream})
 
 # reachable_recursive is a helper that shouldn't be called directly
 reachable_recursive() {
