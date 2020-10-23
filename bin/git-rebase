@@ -103,11 +103,30 @@ then
     exec git rebase "${original_options[@]}"
 fi
 
-# upstream commits which aren't in the local branch
-git >$TMPDIR/upstream_commits log --topo-order --pretty=%H  --reverse HEAD..${opt_upstream}
-upstream_commits=$(<$TMPDIR/upstream_commits)
+# If we know some upstream branches are meant to be stable, we can exclude
+# their commits from consideration to speed things up.
+stable_branches=()
+for remote in $(git remote)
+do
+    for branches in $(git config --get-all "remote.${remote}.stable")
+    do
+        stable_branches+=("remotes/${remote}/main")
+    done
+done
 
-merge_base=$(git merge-base HEAD ${opt_upstream})
+# upstream commits which aren't in the local branch
+git >$TMPDIR/upstream_commits \
+    log \
+    --topo-order \
+    --pretty=%H  \
+    --reverse \
+    HEAD..${opt_upstream} \
+    --not "${stable_branches[@]}"
+upstream_commits=$(<$TMPDIR/upstream_commits)
+if [ -z "${upstream_commits}" ]
+then
+    exec git rebase "${original_options[@]}"
+fi
 
 previous="<base>"
 for commit in ${new_commits}
@@ -156,7 +175,7 @@ total_order=$(tac $TMPDIR/total_order | grep -v "<base>")
 # TODO(Carl) Save the currently checked-out state so that we can abort
 
 original_branch=$(git branch --show-current)
-git switch --detach ${merge_base}
+git switch --detach $(git merge-base HEAD ${opt_upstream})
 
 # reachable_recursive is a helper that shouldn't be called directly
 reachable_recursive() {
