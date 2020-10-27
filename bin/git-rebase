@@ -108,9 +108,9 @@ fi
 stable_branches=()
 for remote in $(git remote)
 do
-    for branches in $(git config --get-all "remote.${remote}.stable")
+    for branch in $(git config --get-all "remote.${remote}.stable")
     do
-        stable_branches+=("remotes/${remote}/main")
+        stable_branches+=("remotes/${remote}/${branch}")
     done
 done
 
