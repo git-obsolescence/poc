@@ -16,7 +16,7 @@ git push origin ${branch}
 pushd ..
 git clone remote copy
 pushd copy
-$POC_SETUP
+git config obsolescence.enabled true
 popd && popd
 
 ########################################################################

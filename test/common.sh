@@ -16,23 +16,23 @@ then
     fi
 
     export TEST_TMP_DIR=$(mktemp -d -t obsolescence.XXXXXX)
+    cd $TEST_TMP_DIR
     export TMPDIR=${TEST_TMP_DIR}
 
-    mkdir -p $TEST_TMP_DIR/remote
-    pushd $TEST_TMP_DIR/remote
+    mkdir -p remote
+    pushd remote
     git init --bare
     rm -rf $(git rev-parse --git-dir )/hooks/*.sample
     popd
 
-    mkdir -p $TEST_TMP_DIR/workspace
-    pushd $TEST_TMP_DIR/workspace
-    git init
+    git clone remote workspace
+    pushd workspace
+    git config obsolescence.enabled true
     rm -rf $(git rev-parse --git-dir )/hooks/*.sample
-    git remote add origin $TEST_TMP_DIR/remote
 
     script=$projectdir/test/$(basename "$0")
     # Re-exec the test script given the new repository setup
-    exec $projectdir/shell $script ${1+"$@"}
+    PATH=${projectdir}/bin:$PATH exec $script ${1+"$@"}
 else
     cleanup() {
         rm -rf $TEST_TMP_DIR

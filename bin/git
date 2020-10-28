@@ -19,6 +19,11 @@ mydir=$(dirname "$0")
 # invocations of git call "real" git.
 export PATH=$(echo "$PATH" | sed s,${mydir}:,,g)
 
+if [ "$(git config obsolescence.enabled)" != "true" ]
+then
+    exec $(basename "$0") ${1+"$@"}
+fi
+
 # Sometimes it is on the $PATH in multiple places.
 [ "$OBSOLESCENCE_POC" = 1 ] && exec $(basename "$0") ${1+"$@"}
 
@@ -35,11 +40,45 @@ case $exe_name in
   git-*) subcommand=${exe_name/git-/}
 esac
 
+# If the subcommand is rebase, commit, or push set up a hooks directory.
+case $subcommand in
+rebase|commit|push)
+    newHooksPath=$(mktemp -d -t git.hooksPath.XXXXXX)
+
+    oldLocalHooksPath=$(git config --worktree core.hooksPath)
+    if [ $? -eq 0 ]
+    then
+        cleanup() {
+            rm -rf ${newHooksPath}
+            git config --worktree core.hooksPath ${oldLocalHooksPath}
+        }
+    else
+        cleanup() {
+            rm -rf ${newHooksPath}
+            git config --worktree --unset core.hooksPath
+        }
+    fi
+    trap cleanup EXIT
+
+    oldHooksPath=$(git config core.hooksPath || echo "$(git rev-parse --absolute-git-dir)/hooks")
+    find ${oldHooksPath} -type f -depth 1 | xargs -I {} ln -s {} ${newHooksPath}/
+
+    repo=$(cd ${mydir} && git rev-parse --show-toplevel)
+    for hook in post-rewrite pre-push
+    do
+        ln -sf ${repo}/hooks/${hook} ${newHooksPath}/${hook}
+    done
+
+    git config core.hooksPath ${newHooksPath}
+;;
+esac
+
 export OBSOLESCENCE_POC=1
 
 if [ -n "${subcommand}" -a -x "${mydir}/git-${subcommand}" ]
 then
-    exec ${mydir}/git-${subcommand} ${1+"$@"}
+    ${mydir}/git-${subcommand} ${1+"$@"}
+    exit
 fi
 
-exec git ${subcommand} ${1+"$@"}
+git ${subcommand} ${1+"$@"}

@@ -27,38 +27,40 @@ condusive to getting the POC done in a shorter amount of time.
 
 ## How to use it
 
-The `shell` command in the top of this repository is the entry point for using
-the code in this repository. It spawns a sub-shell with `$PATH` adjusted
-appropriately to activate it.
+To use this POC, first ensure that the `git` command found under `./bin` is
+ahead of regular git on `$PATH`. You can do this by putting `./bin` on the front
+of `$PATH`.
 
-You also need a git repository to work with. When you run `shell` it will look
-to see if your current working directory is part of one. If it is, it will
-install necessary hooks into the repository to create an obsolescence graph of
-your changes. When the script exits, it will clean up the hooks. The script will
-refuse to run if there are already repository hooks in place. One consequence of
-this is that the script is not reentrant. You can only run one instance of it
-per repository copy.
+    $ export PATH=$PWD/bin:$PATH
 
-You can use an existing "real" repository if you want. Be careful with this
+Alternatively, you can symlink it to a directory that is already ahead of
+regular git on your `$PATH` if you have such a directory handy. It is important
+that you symlink this and not copy because it will be through the link that the
+script finds its origin.
+
+You also need a git repository to work with and you need to configure it to turn
+on obsolescence. Do this using `git config`.
+
+   $ git config obsolescence.enabled true
+
+It is helpful to mark upstream branches as stable. This will speed up comparing
+changes in `git rebase` because it will not consider any changes on stable
+branches as malleable and therefore will not attempt to reconcile your changes
+with them. For example, the following command will tell it to consider the
+origin remote's main branch as stable.
+
+   $ git config remote.origin.stable main
+
+You can use an existing "real" repository if you dare. Be careful with this
 because you may end up having commits with useless "obsoletes:" trailers in the
 commit message. They are harmless except that they could be confusing if they
 end up getting merged into a public repository where most contributors aren't
 aware of what they are for.
 
-### More permanent alternative
-
-The shell command above works if you want to just try out the code on a
-repository without permanently turning on obsolescence. If you want to more
-permanently convert your local repository, you can run the `setup-repo` script
-from this project with your current working directory set to somewhere inside
-the repo.
-
-When you do this, you also need to symlink the `bin/git` script from this
-repository to a directory that comes before where your shell would normally find
-the git command. For example, say that you have `~/bin` at the front of your
-path. You can run something like this where `$THIS_REPOSITORY` is the path to
-where you've cloned this repo.
-
-    $ cd ~/bin && ln -sf $THIS_REPOSITORY/bin/git .
-
-It is important that a symlink is used rather than just a copy of the script.
+Also beware that this is POC quality code. It could do the wrong thing and leave
+your repository in a state from which it is difficult, or beyond your
+capability, to recover. You should be very familiar with the inner workings of
+git. For now, be sure to run commands on a clean working copy and remember that
+`git reflog` is your friend. You should be able to back up to a known good
+state. Don't use it if you're not prepared for the consequences which could
+include losing a significant amount of work from your local repository.
