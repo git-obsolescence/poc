@@ -39,9 +39,11 @@ that you symlink this and not copy because it will be through the link that the
 script finds its origin.
 
 You also need a git repository to work with and you need to configure it to turn
-on obsolescence. Do this using `git config`.
+on obsolescence. Do this using `git config`. While you're at it, you'll need to
+turn on the optional worktreeConfig extension.
 
    $ git config obsolescence.enabled true
+   $ git config extensions.worktreeConfig true
 
 It is helpful to mark upstream branches as stable. This will speed up comparing
 changes in `git rebase` because it will not consider any changes on stable

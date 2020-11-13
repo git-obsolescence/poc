@@ -17,6 +17,7 @@ pushd ..
 git clone remote copy
 pushd copy
 git config obsolescence.enabled true
+git config extensions.worktreeConfig true
 popd && popd
 
 ########################################################################
