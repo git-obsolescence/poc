@@ -65,7 +65,7 @@ rebase|commit|push)
     fi
     trap cleanup EXIT
 
-    oldHooksPath=$(git config core.hooksPath || echo "$(git rev-parse --absolute-git-dir)/hooks")
+    oldHooksPath=$(git config core.hooksPath || git rev-parse --git-path hooks)
     find ${oldHooksPath} -type f -depth 1 | xargs -I {} ln -s {} ${newHooksPath}/
 
     repo=$(cd ${mydir} && git rev-parse --show-toplevel)
