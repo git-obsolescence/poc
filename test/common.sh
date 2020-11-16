@@ -28,6 +28,7 @@ then
     git clone remote workspace
     pushd workspace
     git config obsolescence.enabled true
+    git config extensions.worktreeConfig true
     rm -rf $(git rev-parse --git-dir )/hooks/*.sample
 
     script=$projectdir/test/$(basename "$0")

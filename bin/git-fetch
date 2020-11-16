@@ -17,9 +17,32 @@ git fetch ${1+"$@"}
 cp ${fetch_file}{,.save}
 trap "cp ${fetch_file}{.save,}" EXIT
 
-# Get the remote URL. Assumes only one remote. This is why fetch doesn't work
-# for multiple remotes.
-remote=$(awk '{print$NF;exit}' ${fetch_file})
+# Get the remote. Assumes only one remote. This is why fetch doesn't work for
+# multiple. This is complicated by the fact that FETCH_HEAD doesn't include the
+# user@ part of a remote URL and we need that to fetch from it. Also, I don't
+# want to get into parsing all of the possible fetch options to figure out which
+# one is the remote.
+fetched_url=$(awk '{print$NF;exit}' ${fetch_file})
+for arg in ${1+"$@"}
+do
+    case $arg in
+    --multiple) echo >&2 "Multiple remotes not supported with obsoloscence poc"; exit 1 ;;
+    esac
+
+    # See if this is the argument representing the repository. Hackish
+    if [[ ${arg} == *${fetched_url}* ]]
+    then
+        remote=${arg}
+        break
+    else
+        remote_url=$(git remote get-url ${arg} 2>/dev/null)
+        if [[ ${remote_url} == *${fetched_url}* ]]
+        then
+            remote=${remote_url}
+            break
+        fi
+    fi
+done
 
 # needed builds a list of commits that we know are needed based on reading the
 # obsoletes trailers in the new commits and following the obsolescence graph
