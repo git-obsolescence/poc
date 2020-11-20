@@ -17,11 +17,14 @@ fi
 
 . "$(dirname $(readlink -f "$0"))/common.sh"
 
-echo Running the post-rewrite hook
+echo Running the post-rewrite hook for $1
 
 # From githooks(5): first argument denotes the command it was invoked by:
 # currently one of amend or rebase. Ignore it for now.
 invoked_by=$1; shift
+
+# Don't run for amend if we're in the middle of rebasing
+[ "$OBSOLESCENCE_POC_REBASING" = "1" -a "${invoked_by}" != "rebase" ] && exit 0
 
 # The hook receives a list of the rewritten commits on stdin, in the format
 #
