@@ -53,12 +53,18 @@ not git push origin ${branch}
 git fetch origin ${branch}
 not git push origin ${branch}
 
+# Note that rebase here does some new magic. It notices that there are
+# divergent commits from the same change on the two branches and merges them
+# together. The resulting commit will have two obsoletes references showing
+# that they have been merged together.
 git rebase origin/${branch}
 test "${branch}" = "$(git branch --show-current)"
 
+# Since the divergent change has been resolved, we can now push the result
+# back to origin.
 git push origin ${branch}
 
-# Workspace should be clean
+# Workspace should be clean and the contents have been merged together.
 test -z "$(git status --porcelain)"
 test "" = "$(<one)"
 test "fixed" = "$(<two)"

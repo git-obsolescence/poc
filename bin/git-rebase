@@ -16,6 +16,8 @@
 # Quick and dirty options parsing
 ########################################################################
 
+export OBSOLESCENCE_POC_REBASING=1
+
 opt_keep_base=false
 opt_root=false
 opt_interactive=false

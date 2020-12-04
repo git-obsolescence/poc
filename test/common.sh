@@ -94,16 +94,7 @@ not() {
 # This isn't perfect. For example, you can't use squash or anything that
 # invokes an editor during the interactive rebase.
 ed_it() {
-    local script=$(mktemp -t ed.XXXXXX)
-    cat >${script} <<-SCRIPT
-	#!/bin/bash
-	
-	ed -s \$1 <<ED
-	$(cat)
-	ED
-	SCRIPT
-    chmod +x ${script}
-    EDITOR=${script} ${1+"$@"}
+    EDITOR=ed ${1+"$@"}
 }
 
 # no_edit makes it convenient to use `git rebase --interactive`
