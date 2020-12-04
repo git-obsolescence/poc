@@ -1,0 +1,36 @@
+#!/bin/bash -ex
+
+. "$(dirname "$0")/common.sh"
+
+########################################################################
+# Test interactive rebase in place where not all commits are modified
+#
+########################################################################
+
+branch=$(git branch --show-current)
+touch base && git add base
+git commit -m "Base commit"
+base=$(git rev-parse @)
+
+for letter in a b c d
+do
+    touch $letter && git add $letter
+    git commit -m "$letter commit"
+done
+
+prev_d=$(git rev-parse @)
+prev_c=$(git rev-parse @~)
+prev_b=$(git rev-parse @~2)
+prev_a=$(git rev-parse @~3)
+
+# Moves line four to after line 1. IOW line 4 -> 2
+ed_it git rebase -i --keep-base $base <<ED
+4m1
+%p
+w
+ED
+
+assert_revs_equal "a predecessor" "" $(list_predecessors @~3)
+assert_revs_equal "d predecessor" ${prev_d} $(list_predecessors @~2)
+assert_revs_equal "b predecessor" ${prev_b} $(list_predecessors @~)
+assert_revs_equal "c predecessor" ${prev_c} $(list_predecessors @)
