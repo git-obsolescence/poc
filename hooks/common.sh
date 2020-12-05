@@ -1,3 +1,14 @@
+# If we know some upstream branches are meant to be stable, we can exclude
+# their commits from consideration to speed things up.
+stable_branches=()
+for remote in $(git remote)
+do
+    for branch in $(git config --get-all "remote.${remote}.stable")
+    do
+        stable_branches+=("remotes/${remote}/${branch}")
+    done
+done
+
 # verify_commit prints the sha1 of a valid commit and exits with 0. If the
 # commit is not valid in the current repository, it exits non-zero
 verify_commit() {

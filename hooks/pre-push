@@ -52,7 +52,7 @@ do
         range="$remote_sha..$local_sha"
     fi
 
-    for commit in $(git log --pretty=%H ${range})
+    for commit in $(git log --pretty=%H ${range} --not "${stable_branches[@]}")
     do
         change_id=$(get_change_id ${commit})
         git show-ref | awk -v sha=${change_id} '$2~"^refs/cheads/"sha {print$2}'

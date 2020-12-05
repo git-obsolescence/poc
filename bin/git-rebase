@@ -105,17 +105,6 @@ then
     exec git rebase "${original_options[@]}"
 fi
 
-# If we know some upstream branches are meant to be stable, we can exclude
-# their commits from consideration to speed things up.
-stable_branches=()
-for remote in $(git remote)
-do
-    for branch in $(git config --get-all "remote.${remote}.stable")
-    do
-        stable_branches+=("remotes/${remote}/${branch}")
-    done
-done
-
 # upstream commits which aren't in the local branch
 git >$TMPDIR/upstream_commits \
     log \
