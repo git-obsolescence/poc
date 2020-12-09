@@ -49,7 +49,7 @@ do
     new_range="$remote_sha..$local_sha"
     old_range="$local_sha..$remote_sha"
 
-    new_commits=$(git log --pretty=%H ${new_range})
+    new_commits=$(git log --pretty=%H ${new_range} --not "${stable_branches[@]}")
     if [ $? -ne 0 ]
     then
         echo >&2 "Cannot find the list of new commits: ${new_range}"
@@ -67,7 +67,7 @@ do
             exit 1
         fi
 
-        for old_commit in $(git log --pretty=%H ${old_range})
+        for old_commit in $(git log --pretty=%H ${old_range} --not "${stable_branches[@]}")
         do
             old_change_id=$(get_change_id ${old_commit})
             if [ $? -ne 0 ]
