@@ -97,6 +97,73 @@ projectdir=$(cd $(dirname "$0")/.. && pwd)
 export TMPDIR=$(mktemp -d -t git-rebase.XXXXXX)
 trap "rm -rf $TMPDIR" EXIT
 
+# The following algorithm finds a total ordering of changes between the local
+# and the upstream branch to which we're rebasing.
+#
+# If a change exists in both branches, then it must be represented by different
+# commits. Otherwise, the one commit would have been included in the merge base
+# between the two. If neither commit is reachable from the other in the
+# obsolescence graph, then the change is considered divergent and there must be
+# a third common commit reachable from both. Otherwise, the reachable one *is*
+# the common base.
+#
+# There may be changes that only exist in one or the other branch. This could
+# either be because the change was added on one side or because the change was
+# removed from the other side. We need to be able to tell the difference and
+# this is where things get tricky. We need to identify common commits that are
+# reachable from obsolescence graphs on both sides to find the common branch
+# from which the two diverged.
+#
+# For added changes, we bias the algorithm so that changes added upstream come
+# earlier if possible. This maximizes the number of changes that we could use
+# as-is from upstream theryby minimizing the churn to the upstream branch. Look
+# at it this way, if there are no common changes between the two branches, we
+# would want all local changes to be rebased after the upstream changes and the
+# commits on the upstream branch wouldn't need any rewriting at all. This is
+# accomplished by traversing upstream edges before local edges.
+#
+# The total ordering of changes comes from traversing a "change graph" derived
+# from the commit graphs from the upstream, local, and common branches. Each
+# edge in the git commit graph is mapped to an edge in the change graph by
+# mapping the commits to the changes they represent.
+#
+# It traverses the resulting change graph depth-first to find a topological
+# ordering of changes. Even though a git commit graph is practically always
+# acyclic, the change graph is derived from it in a way that can result in a
+# cyclic graph. The algorithm needs to remove edges to break them until the
+# resulting graph is a DAG. To accomplish this, a weight is computed for each
+# edge depending on in which branch(es) they appear. When a cycle is detected,
+# the edge with the lowest weight can be removed.
+#
+# If an edge appears in the upstream branch, 3 is added to its weight. If it
+# appears in the local branch, 4 is added to its weight. The reason local
+# ordering is given a higher weight is to prefer local ordering over upstream
+# ordering in the event that changes are reordered differently in the two
+# branches. It is a simple tie-breaker strategy.
+#
+# If an edge appears in the common branch, 2 is *subtracted* from its weight.
+# This may not seem intuitive at first but can be understood by realizing that
+# if an edge exists in the common branch but not one or both of the upstream
+# and local branches then someone removed it. We want to discard removed edges.
+# If no one removed it, then subtracting 2 isn't enough to remove the edge from
+# consideration. The following 7 permutations are possible for each edge
+# ordered by weight. The 8th theoretical permutation can be ignored since such
+# an edge doesn't exist in any branch and the weight would be 0.
+
+#         upstream, not common,     local = 7  # This ordering was added on both branches
+#         upstream,     common,     local = 5  # This ordering was not changed
+#
+#     not upstream, not common,     local = 4  # This ordering was added locally
+#         upstream, not common, not local = 3  # This ordering was added upstream
+#
+#     not upstream,     common,     local = 2  # This ordering was removed upstream
+#         upstream,     common, not local = 1  # This ordering was removed locally
+#     not upstream,     common, not local = -2 # This ordering was removed on both sides
+
+# Edges with a weight of less than 3 can be discarded immediately since they
+# were removed on one or both sides. The changes from those edges were either
+# removed entirely or are in an added edge.
+
 # commits introduced by local branch
 git >$TMPDIR/new_commits log --topo-order --pretty=%H --reverse ${opt_upstream}..HEAD
 new_commits=$(<$TMPDIR/new_commits)
