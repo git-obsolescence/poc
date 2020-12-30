@@ -195,7 +195,7 @@ do
         echo >&2 "Couldn't find change_id for ${commit}"
         exit 1
     fi
-    echo >>$TMPDIR/local_changes "${change_id} ${commit}"
+    echo >>$TMPDIR/local_edges "${change_id} ${commit}"
     echo >>$TMPDIR/dag "${change_id} ${previous} 5"
     previous=${change_id}
 done
@@ -209,7 +209,7 @@ do
     # changes. If it doesn't, assume that the change doesn't exist locally.
     # Use the commit id as a stand-in for the change id if necessary.
     change_id=$(get_change_id ${commit} || echo ${commit})
-    echo >>$TMPDIR/upstream_changes "${change_id} ${commit}"
+    echo >>$TMPDIR/upstream_edges "${change_id} ${commit}"
     echo >>$TMPDIR/dag "${change_id} ${previous} 4"
     previous=${change_id}
 done
@@ -294,8 +294,8 @@ get_change_base() {
 
 for change in ${total_order}
 do
-    local_commit=$(awk -v change=${change} '$1 == change {print$2}' $TMPDIR/local_changes)
-    upstream_commit=$(awk -v change=${change} '$1 == change {print$2}' $TMPDIR/upstream_changes)
+    local_commit=$(awk -v change=${change} '$1 == change {print$2}' $TMPDIR/local_edges)
+    upstream_commit=$(awk -v change=${change} '$1 == change {print$2}' $TMPDIR/upstream_edges)
 
     # TODO(Carl) a change might be missing from one side or the other because
     # it was removed. Need to figure out if the change was reference from any
