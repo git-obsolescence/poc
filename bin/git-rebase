@@ -165,9 +165,9 @@ trap "rm -rf $TMPDIR" EXIT
 # removed entirely or are in an added edge.
 
 # commits introduced by local branch
-git >$TMPDIR/new_commits log --topo-order --pretty=%H --reverse ${opt_upstream}..HEAD
-new_commits=$(<$TMPDIR/new_commits)
-if [ -z "${new_commits}" ]
+git >$TMPDIR/local_commits log --topo-order --pretty=%H --reverse ${opt_upstream}..HEAD
+local_commits=$(<$TMPDIR/local_commits)
+if [ -z "${local_commits}" ]
 then
     exec git rebase "${original_options[@]}"
 fi
@@ -187,7 +187,7 @@ then
 fi
 
 previous="<base>"
-for commit in ${new_commits}
+for commit in ${local_commits}
 do
     change_id=$(get_change_id ${commit})
     if [ $? -ne 0 ]
@@ -195,7 +195,7 @@ do
         echo >&2 "Couldn't find change_id for ${commit}"
         exit 1
     fi
-    echo >>$TMPDIR/new_changes "${change_id} ${commit}"
+    echo >>$TMPDIR/local_changes "${change_id} ${commit}"
     echo >>$TMPDIR/dag "${change_id} ${previous} 5"
     previous=${change_id}
 done
@@ -294,14 +294,14 @@ get_change_base() {
 
 for change in ${total_order}
 do
-    new_commit=$(awk -v change=${change} '$1 == change {print$2}' $TMPDIR/new_changes)
+    local_commit=$(awk -v change=${change} '$1 == change {print$2}' $TMPDIR/local_changes)
     upstream_commit=$(awk -v change=${change} '$1 == change {print$2}' $TMPDIR/upstream_changes)
 
     # TODO(Carl) a change might be missing from one side or the other because
     # it was removed. Need to figure out if the change was reference from any
     # of the common change history.
 
-    if [ -z "${new_commit}" ]
+    if [ -z "${local_commit}" ]
     then
         git cherry-pick --ff ${upstream_commit}
         if [ $? -ne 0 ]
@@ -313,16 +313,16 @@ do
 
     if [ -z "${upstream_commit}" ]
     then
-        git cherry-pick --ff ${new_commit}
+        git cherry-pick --ff ${local_commit}
         if [ $? -ne 0 ]
         then
-            die "cherry-pick of local (${new_commit}) failed. implement me"
+            die "cherry-pick of local (${local_commit}) failed. implement me"
         fi
         continue
     fi
 
     # Change exists in both branches. We need to find where it is common.
-    base=$(get_change_base ${new_commit} ${upstream_commit})
+    base=$(get_change_base ${local_commit} ${upstream_commit})
 
     # Cherry-pick all three to the current HEAD so that they can be merged
     git cherry-pick --ff ${base}
@@ -335,14 +335,14 @@ do
     upstream_rebased=$(git rev-parse HEAD)
     git reset --hard HEAD~
 
-    git cherry-pick --ff ${new_commit}
+    git cherry-pick --ff ${local_commit}
     [ $? -eq 0 ] || die "cherry-picking the new commit failed"
     new_rebased=$(git rev-parse HEAD)
     git reset --hard HEAD~
 
     git read-tree -m -u ${base_rebased} ${new_rebased} ${upstream_rebased}
 
-    trailers=(--trailer obsoletes:${upstream_commit} --trailer obsoletes:${new_commit})
+    trailers=(--trailer obsoletes:${upstream_commit} --trailer obsoletes:${local_commit})
 
     tree=$(git write-tree)
     if [ $? -ne 0 ]
@@ -351,7 +351,7 @@ do
     fi
 
     # TODO(Carl) Merge commit messages? How would conflicts be handled.
-    commit=$(git log -1 --pretty=%B ${new_commit} |
+    commit=$(git log -1 --pretty=%B ${local_commit} |
         grep -v "^obsoletes: " |
         git interpret-trailers "${trailers[@]}" |
         git commit-tree ${tree} -p HEAD)
